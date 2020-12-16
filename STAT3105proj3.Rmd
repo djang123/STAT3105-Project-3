@@ -181,6 +181,7 @@ spv$residence<-as.numeric(spv$CC351)
 spv$gender=as.numeric(spv$gender)-1 #code gender
 spv$polint<-1.25*spv$polint #rescale 0-8 to 0-10
 spv$infolevel<-1.25*spv$infolevel #rescale 0-8 to 0-10
+spv$race<-spv$race-1
 #main model
 model1<-glm(rolloff~ infolevel+polint+residence+gender+race, data = spv, family = binomial)
 summary(model1)
@@ -195,7 +196,7 @@ plot_model(model1,title="Logistic Regression Model Odds Ratios")
 ```{r}
 #Model output visualization
 #store fitted values and observed values
-data=data.frame(fit=model1$fitted.values,polint=na.omit(spv$polint),info=spv$infolevel,rolloff=spv$rolloff)
+data=data.frame(fit=model1$fitted.values,polint=na.omit(spv$polint),info=spv$infolevel,rolloff=spv$rolloff,race=spv$race)
 
 
 ggplot(data,aes(x=polint, y=fit,group=polint))+
@@ -204,6 +205,10 @@ ggplot(data,aes(x=polint, y=fit,group=polint))+
 ggplot(data,aes(x=info, y=fit, group=info))+
   geom_boxplot()+
   labs(y="Probability of Rolling Off",x="Level of Political Information",title="Probability of Rolling off")
+ggplot(data,aes(x=race, y=fit, group=race))+
+  geom_boxplot()+
+  labs(y="Probability of Rolling Off",x="Race (1=White/0=Non-white)",title="Probability of Rolling off")
+
 
 #Model validation boxplot
 ggplot(data,aes(x=rolloff, y=fit, group=rolloff))+
