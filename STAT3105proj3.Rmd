@@ -1,0 +1,233 @@
+---
+title: "POLS"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+
+```{r}
+#load dependencies
+library(foreign)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(sjPlot)
+library(stargazer)
+
+```
+```{r}
+#data wrangling
+cces<-read.dta("A://cces2012.dta")
+ccesoriginal<-cces
+cces <- cces %>% filter_at(vars(educ,CC309a,CC309b,CC309c,CC309d,CC310a,CC310b,CC351,
+                                CC310c,CC310d,newsint,CC417a_1,CC417a_2,CC417a_3,CC417a_4,ideo5),all_vars(!is.na(.)))
+#Voter registration valdiated
+cces<-cces[cces$catalist_match=="Yes"&cces$votereg_post=="Yes",]
+#get correct answers to questions
+levels(cces$CC309c)<-c(1,2,3,4,5,6)
+levels(cces$CC309d)<-c(1,2,3,4,5,6)
+levels(cces$CC310a)<-c(0,1,2,3,4,5,6)
+levels(cces$CC310b)<-c(0,1,2,3,4,5,6)
+levels(cces$CC310c)<-c(0,1,2,3,4,5,6)
+ssp<-c(1,3,1,2,2,2,2,2,1,1,2,1,2,1,2,1,1,1,1,2,2,1,1,1,1,1,NA,2,1,2,2,1,1,1,1,1,2,1,2,1,1,1,1,1,2,1,2,2,1,1)
+slp<-c(1,1,1,2,2,1,2,2,1,1,2,1,2,1,1,1,2,1,1,2,2,1,1,1,1,1,NA,2,1,2,2,2,1,1,1,1,3,1,2,1,1,1,1,1,2,1,2,2,1,1)
+governor<-c(1,1,1,2,2,2,2,2,1,1,2,1,2,1,1,1,2,1,1,2,2,1,2,1,2,2,1,1,2,1,1,2,2,1,1,1,2,1,2,1,1,1,1,1,2,1,2,2,1,1)
+sen1<-c(1,2,1,2,2,2,3,2,2,1,2,1,2,1,2,1,1,2,1,2,1,2,2,1,2,2,2,1,2,2,2,2,2,2,2,1,2,2,2,1,2,1,1,1,3,2,2,2,2,1)
+sen2<-c(1,1,1,1,2,2,2,2,1,1,2,1,1,1,1,1,1,1,1,2,2,2,2,1,1,2,1,2,1,2,2,2,1,1,1,1,2,1,2,1,1,1,1,1,2,2,2,2,1,1)
+states<-levels(cces$inputstate)[1:51]
+states<-states[-9]
+gov<-cbind(states,governor)
+gov[39,2]<-3
+sen1<-cbind(states,sen1)
+sen2<-cbind(states,sen2)
+ssp<-cbind(states,ssp)
+slp<-cbind(states,slp)
+levels(cces$CC310d)[4]
+cces$CurrentHouseParty<-as.factor(cces$CurrentHouseParty)
+levels(cces$CurrentHouseParty)<-c("Democrat","Republican",levels(cces$CC310d)[4])
+
+#Construct Race variable
+levels(cces$race)<-c(1,rep(0,9))
+cces$race<-as.numeric(cces$race)
+
+#Construct levels of information
+infolevel<-rep(0,dim(cces)[1])
+for (i in 1:dim(cces)[1]){
+  if (cces$CC309a[i]=="Republicans"){
+    infolevel[i]<-infolevel[i]+1
+  }
+  if (cces$CC309b[i]=="Democrats"){
+    infolevel[i]<-infolevel[i]+1
+  }
+  if (cces$CC309c[i]==ssp[states==cces$inputstate[i],2]){
+    infolevel[i]<-infolevel[i]+1
+  }
+   if (cces$CC309d[i]==slp[states==cces$inputstate[i],2]){
+    infolevel[i]<-infolevel[i]+1
+  }
+   if (cces$CC310a[i]==gov[states==cces$inputstate[i],2]){
+    infolevel[i]<-infolevel[i]+1
+  }
+   if (cces$CC310b[i]==sen1[states==cces$inputstate[i],2]){
+    infolevel[i]<-infolevel[i]+1
+  }
+   if (cces$CC310c[i]==sen2[states==cces$inputstate[i],2]){
+    infolevel[i]<-infolevel[i]+1
+   }
+  if (cces$CC310d[i]==cces$CurrentHouseParty[i]){
+    infolevel[i]<-infolevel[i]+1
+  }
+}
+cces$infolevel<-infolevel
+```
+```{r}
+#construct levels of interest in politics
+newsint<-NA
+for (i in 1:dim(cces)[1]){
+  if (cces$newsint[i]=="Most of the time"){
+    newsint[i]<-4
+  }
+   if (cces$newsint[i]=="Some of the time"){
+    newsint[i]<-3
+  }
+   if (cces$newsint[i]=="Only now and then"){
+    newsint[i]<-2
+   }
+   if (cces$newsint[i]=="Hardly at all"){
+    newsint[i]<-1
+   }
+   if (cces$newsint[i]=="Don't know"){
+    newsint[i]<-1
+   }
+}
+for (i in 1:dim(cces)[1]){
+  if (cces$CC417a_1[i]=="Yes"){
+    newsint[i]<-newsint[i]+1
+  }
+   if (cces$CC417a_2[i]=="Yes"){
+    newsint[i]<-newsint[i]+1
+  }
+   if (cces$CC417a_3[i]=="Yes"){
+    newsint[i]<-newsint[i]+1
+   }
+   if (cces$CC417a_4[i]=="Yes"){
+    newsint[i]<-newsint[i]+1
+   }
+  if (cces$ideo5[i]=="Not sure"){
+    newsint[i]<-newsint[i]-1
+  }
+}
+cces$polint<-newsint
+```
+
+```{r}
+#states that had judicial elections in 2012
+states<-c("Alabama","Alaska","Arizona","Colorado","Florida","Illinois","Indiana","Iowa","Kansas","Kentucky","Maine",  "Maryland","Michigan","Minnesota","Mississippi","Montana","Nebraska","New Mexico","North Carolina","Ohio",           "Oklahoma","Oregon","South Dakota","Texas","Washington","West Virginia")
+#filter voters registered in states
+spv<-cces[cces$inputstate_post%in%states,]  
+#Replace NA value with False for for loop
+MI<-as.vector(spv$CCj413_MI1_97)
+spv$CCj413_MI1_97<-ifelse(is.na(MI),F,MI)
+WV<-as.vector(spv$CCj413_WV_97)
+spv$CCj413_WV_97<-ifelse(is.na(WV),F,WV)
+ccj<-as.vector(spv$CCj413a)
+spv$CCj413a<-ifelse(is.na(ccj),F,ccj)
+ccr<-as.vector(spv$CCj413d)
+spv$CCj413d<-ifelse(is.na(ccr),F,ccr)
+a<-levels(as.factor(spv$CCj413d))[2]
+b<-levels(as.factor(spv$CCj413a))[7]
+
+#derive and code roll-off (0/1)
+rolloff<-NA
+for (i in 1:dim(spv)[1]){
+  if (spv$CCj413a[i]==b|spv$CCj413d[i]==a|spv$CCj413_MI1_97[i]=="Yes"|spv$CCj413_WV_97[i]=="Yes"){
+    rolloff[i]<-1
+  }
+  else (rolloff[i]<-0)
+}
+spv$rolloff<-rolloff
+```
+
+```{r}
+#Exploratory Visualizations post-wrangling
+ggplot(spv, aes(x=infolevel),) +  
+  geom_histogram(binwidth = 0.5)+
+  scale_x_continuous(breaks = round(seq(min(spv$infolevel), max(spv$infolevel), by = 1),1))+
+  labs(title="Distribution of Levels of Political Information",x="Information Level",y="Count")
+ggplot(spv, aes(x=polint),) +  
+  geom_histogram(binwidth = 0.5)+
+  scale_x_continuous(breaks = round(seq(min(spv$infolevel), max(spv$infolevel), by = 1),1))+
+  labs(title="Distribution of Levels of Interest in Politics",x="Level of Interest in Politics",y="Count")
+ggplot(spv, aes(x=rolloff),) +  
+  geom_histogram(binwidth = 0.5)+
+  scale_x_continuous(breaks = round(seq(min(0), max(1), by = 1),1))+
+  labs(title="Distribution of Ballot Rolloff in 2012 State Supreme Court Election",x="Rolloff (1= Rolled-off)",y="Count")+
+  geom_text(aes(label = round(..prop..,3), y= ..prop..), stat= "count", vjust = -20.2)
+#descriptive statistics
+mean(spv$polint)
+sd(spv$polint)
+mean(spv$infolevel)
+sd(spv$infolevel)
+```
+
+
+```{r mylatextable, results = "asis"}
+#construct additional variables and run the model
+#Length of residence in current state
+levels(spv$CC351)<-c(0,1,2,3,4,5,NA,NA)
+spv$residence<-as.numeric(spv$CC351)
+spv$gender=as.numeric(spv$gender)-1 #code gender
+spv$polint<-1.25*spv$polint #rescale 0-8 to 0-10
+spv$infolevel<-1.25*spv$infolevel #rescale 0-8 to 0-10
+#main model
+model1<-glm(rolloff~ infolevel+polint+residence+gender+race, data = spv, family = binomial)
+summary(model1)
+
+#stargazer output
+stargazer(model1, title="Logistic Regression",type="html",dep.var.labels="Rolloff", omit.stat=c("LL","ser","f"), no.space=TRUE)
+plot_model(model1,title="Logistic Regression Model Odds Ratios")
+
+```
+
+
+```{r}
+#Model output visualization
+#store fitted values and observed values
+data=data.frame(fit=model1$fitted.values,polint=na.omit(spv$polint),info=spv$infolevel,rolloff=spv$rolloff)
+
+
+ggplot(data,aes(x=polint, y=fit,group=polint))+
+  geom_boxplot()+
+  labs(y="Probability of Rolling Off",x="Level of Interest in Politics",title="Probability of Rolling off")
+ggplot(data,aes(x=info, y=fit, group=info))+
+  geom_boxplot()+
+  labs(y="Probability of Rolling Off",x="Level of Political Information",title="Probability of Rolling off")
+
+#Model validation boxplot
+ggplot(data,aes(x=rolloff, y=fit, group=rolloff))+
+  geom_boxplot()+
+  labs(y="Probability of Rolling Off",x="Observed Voter Roll-off",title="Probability of Rolling off")
+
+```
+
+
+
+
+```{r}
+#simulation (exclude/add x1 to see change)
+y<-c(rep(1,10),rep(0,90))
+x<-c(rnorm(10,1,0.2),rnorm(90,1.1,0.2))
+x1<-c(rnorm(10,1,0.2),rnorm(90,1.7,0.2))
+data<-as.data.frame(cbind(y,x,x1))
+qm<-glm(y~x+x1, family = binomial,data=data)
+summary(qm)
+data=data.frame(fit=qm$fitted.values,y=y)
+
+#fitted vs observed boxplot
+ggplot(data,aes(x=y, y=fit, group=y))+
+  geom_boxplot()+
+  labs(y="Projected Probability of Y=1",x="y")
+```
+
